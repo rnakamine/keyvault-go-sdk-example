@@ -11,11 +11,9 @@ import (
 )
 
 type AzureKeyVaultCertificate struct {
-	Ctx       context.Context
-	VaultName string
-
-	Client keyvault.BaseClient
-
+	Ctx           context.Context
+	VaultName     string
+	Client        keyvault.BaseClient
 	authenticated bool
 	vaultBaseURL  string
 }
@@ -50,4 +48,6 @@ func main() {
 		fmt.Println("Error", err)
 		return
 	}
+
+	fmt.Println(certificate.authenticated)
 }
