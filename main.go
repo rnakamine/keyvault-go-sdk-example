@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"os"
@@ -11,6 +13,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/keyvault/auth"
 	"github.com/Azure/azure-sdk-for-go/services/keyvault/v7.1/keyvault"
 	"github.com/Azure/go-autorest/autorest/azure"
+	"golang.org/x/crypto/pkcs12"
 )
 
 type AzureKeyVaultCertificate struct {
@@ -63,6 +66,19 @@ func (akv *AzureKeyVaultCertificate) requestCertificateVersion(certificateName s
 	return lastItemVersion, nil
 }
 
+func (akv *AzureKeyVaultCertificate) requestCertificatePFX(certificateName string, certificateVersion string) (key interface{}, cert *x509.Certificate, err error) {
+	pfx, err := akv.Client.GetSecret(akv.Ctx, akv.vaultBaseURL, certificateName, certificateVersion)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	pfxBytes, err := base64.StdEncoding.DecodeString(*pfx.Value)
+	if err != nil {
+		return nil, nil, err
+	}
+	return pkcs12.Decode(pfxBytes, "")
+}
+
 func (akv *AzureKeyVaultCertificate) GetCertificate(certificateName string) (err error) {
 	if !akv.authenticated {
 		return errors.New("Need to invoke GetKeyVaultClient() first")
@@ -74,7 +90,16 @@ func (akv *AzureKeyVaultCertificate) GetCertificate(certificateName string) (err
 		return err
 	}
 
-	fmt.Println(certificateVersion)
+	fmt.Printf("Getting PFX for %s\n", certificateName)
+	pfxKey, pfxCert, err := akv.requestCertificatePFX(certificateName, certificateVersion)
+	keyX509, err := x509.MarshalPKCS8PrivateKey(pfxKey)
+	if err != nil {
+		return nil
+	}
+
+	fmt.Println(pfxCert)
+	fmt.Println(keyX509)
+
 	return nil
 }
 
